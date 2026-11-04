@@ -9,6 +9,7 @@
 ; IMPORTANT NOTE: put the included 'GFX_Sprite_BoomBoom.bin' in 'SMB3/Graphics' so that the sprite renders properly!
 ;
 ; made by DrAnas, partially based upon Thomas's 'all.log': https://bin.smwcentral.net/u/7012/all.7z
+; credit to S.Koopa0 for the bony beetle GFX: https://mfgg.net/index.php?act=resdb&param=02&c=1&id=41816
 ;
 ;======================================================================================================================;
 ; start of user defines                                                                                                ;
