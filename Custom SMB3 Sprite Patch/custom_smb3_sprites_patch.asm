@@ -19,9 +19,9 @@
 ;   4. SKIP THIS STEP IF THE DISASSEMBLY'S FRAMEWORK IS UPDATED TO REMOVE THIS PARTICULAR OVERSIGHT!
 ;   go to 'Global/Global_Macros.asm' & around line 1,076, change '%GetROMSize' to '%GetROMSize()'
 ;
-;   5. finally, go back to 'SMB3' & either run 'Assemble_SMB3.bat' if on Windows, or 'assemble_smb3__linux.sh' if on Linux
+;   5. finally, go back to 'SMB3' & either run 'Assemble_SMB3.bat' if on Windows, or 'assemble_smb3_linux.sh' if on Linux
 ;   to assemble the standalone SMB3 ROM. you could theoretically assemble the whole SMAS easily if on Windows, but again,
-;   there's no native Linux support yet, and you'd have to change 'StartingFreespace to something else to avoid corruptions
+;   there's no native Linux support yet...
 ;
 ;   6. enjoy your custom sprites!
 ;
@@ -53,7 +53,7 @@
 !Hericium1DisASM    = 1
 
 ; made by DrAnas, and credit to Yoshifanatic for the fantastically-designed SMAS disassembly!
-
+;
 ;======================================================================================================================;
 ; shared label defines                                                                                                 ;
 ;======================================================================================================================;
@@ -67,6 +67,7 @@ endmacro
 
 %define_label_names(SubOffScreen, CODE_279BC4, Object_DeleteOffScreen)
 %define_label_names(SprShakeAndDraw, CODE_279EBC, Object_ShakeAndDraw)
+%define_label_names(SprShakeAndCalcTilePos, CODE_279DF9, Object_ShakeAndCalcSprite)
 %define_label_names(SprUpdateYPos, CODE_27A7D9, CODE_27A7D9)
 %define_label_names(SprUpdateXPos, CODE_27A7F0, Object_ApplyXVel)
 %define_label_names(SprBlockInteract, CODE_278B93, Object_WorldDetectN1)

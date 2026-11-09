@@ -3,7 +3,8 @@
 ; by default, this guy will jump around 7 tiles high & 3 tiles wide, back & forth between two points
 ; he can interact with floors & ceilings, but NOT with walls
 ;
-; IMPORTANT NOTE: put the included 'GFX_Sprite_BoomBoom.bin' in 'SMB3/Graphics' so that the sprite renders properly!
+; IMPORTANT NOTE: put the included 'GFX_Sprite_BoomBoom.bin' & 'GFX_Sprite_FlyingBoomBoom.bin' in 'SMB3/Graphics'
+; so that the sprite renders properly!
 ;
 ; made by DrAnas, based upon Thomas's 'all.log': https://bin.smwcentral.net/u/7012/all.7z
 ;
@@ -34,11 +35,11 @@
 ;   - '!RAM_SMB3_Global_SoundCh3' (corresponds to the SFX defines with 'Sound0063' in the name)
 !JumpSFXPort        = !RAM_SMB3_Global_SoundCh1
 
-!ThwimpUpperTileL   = $7E       ;> the TOPLEFT tile of the thwimp
-!ThwimpLowerTileL   = $7F       ;> the BOTTOMLEFT tile of the thwimp
+!ThwimpUpperTileL   = $56       ;> the TOPLEFT tile of the thwimp
+!ThwimpLowerTileL   = $57       ;> the BOTTOMLEFT tile of the thwimp
 
-!ThwimpUpperTileR   = $7E       ;> the TOPRIGHT tile of the thwimp
-!ThwimpLowerTileR   = $7F       ;> the BOTTOMRIGHT tile of the thwimp
+!ThwimpUpperTileR   = $56       ;> the TOPRIGHT tile of the thwimp
+!ThwimpLowerTileR   = $57       ;> the BOTTOMRIGHT tile of the thwimp
 
 !MirrorBothHalves   = 1         ;> if 1, the thwimp's halves will be mirrored, just like in the original SMW
 

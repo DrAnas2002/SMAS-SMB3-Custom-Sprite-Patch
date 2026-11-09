@@ -6,7 +6,8 @@
 ;
 ; while his spikes are showing up, you can't stomp on him, but when they're not, he'll crumble just like the dry bones!
 ;
-; IMPORTANT NOTE: put the included 'GFX_Sprite_BoomBoom.bin' in 'SMB3/Graphics' so that the sprite renders properly!
+; IMPORTANT NOTE: put the included 'GFX_Sprite_BoomBoom.bin' & 'GFX_Sprite_FlyingBoomBoom.bin' in 'SMB3/Graphics'
+; so that the sprite renders properly!
 ;
 ; made by DrAnas, partially based upon Thomas's 'all.log': https://bin.smwcentral.net/u/7012/all.7z
 ; credit to S.Koopa0 for the bony beetle GFX: https://mfgg.net/index.php?act=resdb&param=02&c=1&id=41816
@@ -36,15 +37,15 @@
 
 ; these are the bony beetle's TOPLEFT, TOPRIGHT, BOTTOMLEFT, and BOTTOMRIGHT tiles respectively
 bony_beetle_tiles:
-    db $60,$62,$61,$63              ;\ 0x0-0x1: walking frames
-    db $64,$6E,$65,$6F              ;/
+    db $2E,$30,$2F,$31              ;\ 0x0-0x1: walking frames
+    db $32,$34,$33,$35              ;/
 
-    db $56,$7C,$57,$7D              ;> 0x2: 'about to crumble/get back up' frame
+    db $7C,$7E,$7D,$7F              ;> 0x2: 'about to crumble/get back up' frame
 
     db $DC,$DE,$DD,$DF              ;> 0x3: fully-crumbled frame
 
-    db $70,$72,$71,$73              ;\ 0x4-0x5: 'hiding in shell' frames
-    db $74,$76,$75,$77              ;/
+    db $6E,$7A,$6F,$7B              ;\ 0x4-0x5: 'hiding in shell' frames
+    db $36,$38,$37,$39              ;/
 
 ; which sprite page each frame's gonna use (corresponding to the frame in 'bony_beetle_tiles')
 ; $00 = 1st sprite page; $01 = 2nd sprite page
@@ -58,7 +59,7 @@ bony_beetle_frame_pg:
 ;======================================================================================================================;
 ; please don't touch these! these are for ease of coding
 !BonyBeetleAnimFrame        = !RAM_SMB3_Level_NorSpr_Table7E0068
-!BonyBeetleStunTimer    = !RAM_SMB3_Level_NorSpr_DecrementingTable7E0518
+!BonyBeetleStunTimer        = !RAM_SMB3_Level_NorSpr_DecrementingTable7E0518
 !BonyBeetleUntilHideTimer   = !RAM_SMB3_Level_NorSpr_DecrementingTable7E0520
 !BonyBeetleShakeTimer       = !RAM_SMB3_Level_NorSpr_DecrementingTable7E06AB
 !BonyBeetleCrumbledFlag     = !RAM_SMB3_Level_NorSpr_Table7E0669
@@ -393,6 +394,7 @@ BonyBeetleCustInt:
     LSR
     BCC .hurtPlayer
 
+;======================================================================================================================;
 .crumbleBonyBeetle
 ; set the stun timer to '!CrumbledTime' & set his crumbled flag
     LDA #!CrumbledTime
