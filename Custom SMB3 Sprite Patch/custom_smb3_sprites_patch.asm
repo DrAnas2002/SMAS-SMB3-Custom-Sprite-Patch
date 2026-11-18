@@ -66,7 +66,6 @@ macro define_label_names(name, label_yf, label_hericium1)
 endmacro
 
 %define_label_names(SubOffScreen, CODE_279BC4, Object_DeleteOffScreen)
-%define_label_names(SprShakeAndDraw, CODE_279EBC, Object_ShakeAndDraw)
 %define_label_names(SprShakeAndCalcTilePos, CODE_279DF9, Object_ShakeAndCalcSprite)
 %define_label_names(SprUpdateYPos, CODE_27A7D9, CODE_27A7D9)
 %define_label_names(SprUpdateXPos, CODE_27A7F0, Object_ApplyXVel)
@@ -76,6 +75,7 @@ endmacro
 %define_label_names(FlipSprDir, CODE_28B905, Object_AboutFace)
 %define_label_names(CheckPlayerCont, CODE_27A317, Object_HitTestRespond)
 %define_label_names(SubHorzPosCoarse, CODE_27A7AE, Object_CalcCoarseXDiff)
+%define_label_names(TurnAfterTouchingSprJSR, CODE_279394, Object_BumpOffOthers)
 %define_label_names(SubVertPosCoarse, CODE_27A7C5, CODE_27A7C5)
 %define_label_names(ConveyorMoveSpr, CODE_278B28, CODE_278B28)
 %define_label_names(SprConveyorCheckCarry, CODE_278B48, CODE_278B48)
@@ -88,7 +88,7 @@ endmacro
 %define_label_names(SprPalHeightWidthProps, DATA_21B047, ObjectGroup_Attributes)
 %define_label_names(SprBlkDetectMiscProps, DATA_21B0FB, ObjectGroup_Attributes2)
 %define_label_names(SprGameHaltMiscProps, DATA_21B1AF, ObjectGroup_Attributes3)
-%define_label_names(SprHitboxImmumeProps, DATA_21AE78, Object_AttrFlags)
+%define_label_names(SprHitboxImmuneProps, DATA_21AE78, Object_AttrFlags)
 %define_label_names(SprKillActionProps, DATA_21B317, ObjectGroup_KillAction)
 %define_label_names(SprRealPalTable, DATA_21B263, SNES_ObjectGroup_AttributesPalette)
 %define_label_names(SprGFXPageTable, DATA_21B3CB, SNES_ObjectGroup_PatTableSelHi)
@@ -116,6 +116,9 @@ endmacro
 
 ; this RAM address isn't labelled in hericium1's disasm. yet, but it's $07B5
 !SprConvTileTouched = $07B5
+
+; this RAM address isn't labelled in hericium1's disasm. yet, but it's $1FE9
+!RawSpritePal       = $1FE9
 
 ;======================================================================================================================;
 ; all the defines from here were copied from 'smb3.asm' of Captain Southbird's disasm.:

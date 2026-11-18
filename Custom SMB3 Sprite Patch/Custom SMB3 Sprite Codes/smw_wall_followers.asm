@@ -1,44 +1,44 @@
 ;======================================================================================================================;
-; these are the li'l sparky & hothead from Super Mario World, faithfully ported to SMAS SMB3!
+; these are the li'l sparky, hothead, and fuzzy from Super Mario World, faithfully ported to SMAS SMB3!
 ; by default, these guys will move around solid blocks but be stranded if placed in mid-air, so be careful placing them!
 ;
 ; if the sprite's X-position is EVEN, it'll go LEFT; and if ODD, then it'll go RIGHT
 ; (SMB3 Foundry allows you to see the coordinates of EVERYTHING that you place in DECIMAL for easier tracking!)
 ;
-; IMPORTANT NOTE: put the included 'GFX_Sprite_BoomBoom.bin' & 'GFX_Sprite_FlyingBoomBoom.bin' in 'SMB3/Graphics'
-; so that the sprite renders properly!
+; IMPORTANT NOTE: put the included 'GFX_Sprite_BoomBoom.bin', 'GFX_Sprite_FlyingBoomBoom.bin' & 'GFX_Sprite_SkySprites.bin'
+; in 'SMB3/Graphics' so that the sprite renders properly!
 ;
 ; made by DrAnas, based upon Thomas's 'all.log': https://bin.smwcentral.net/u/7012/all.7z
 ;
 ;======================================================================================================================;
 ; start of user defines                                                                                                ;
 ;======================================================================================================================;
-; the base speed for ALL wall-following sprites. the li'l sparky's speed will automatically be DOUBLE this value!
+; the base speed for ALL wall-following sprites. the li'l sparky & fuzzy's speeds will automatically be DOUBLE this value!
 !BaseMovingSpeed        = $08
 
-; how many frames until the sprite turns around. the li'l sparky's time will automatically be HALF this value!
+; how many frames until the sprite turns around. the li'l sparky & fuzzy's times will automatically be HALF this value!
 !TimeTillTurn           = $1A
 
 ; how many frames WITHIN '!TimeTillTurn' until the sprite changes direction
-; the li'l sparky's time will automatically be HALF this value!
+; the li'l sparky & fuzzy's times will automatically be HALF this value!
 !TimeTillChangeDir      = $10
 
 ;======================================================================================================================;
-!LilSparkySprID         = $05       ;> the vanilla sprite IDs to overwrite with the new li'l sparky
+!LilSparkySprID         = $03       ;> the vanilla sprite IDs to overwrite with the new li'l sparky
 
 !LilSparkyBodyTile      = $64       ;> the li'l sparky's body tile
 
 !LilSparkyPal           = 1         ;> the li'l sparky's palette (set to 0-7 for palettes 0x8-0xF respectively)
-!LilSparkyGFXPg         = 3         ;> if 0, the li'l sparky's gonna use the 1st GFX page; if 1, then the 2nd GFX page
+!LilSparkyGFXPg         = 1         ;> if 0, the li'l sparky's gonna use the 1st GFX page; if 1, then the 2nd GFX page
 
 ;======================================================================================================================;
-!HotheadSprID           = $1A       ;> the vanilla sprite IDs to overwrite with the new hothead
+!HotheadSprID           = $04       ;> the vanilla sprite IDs to overwrite with the new hothead
 
 !HotheadOpenEyeTile     = $76       ;> the hothead's OPEN eye tile
 !HotheadClosedEyeTile   = $77       ;> his CLOSED eye tile for when he's randomly blinking
 
 !HotheadPal             = 1         ;> the hothead's palette (set to 0-7 for palettes 0x8-0xF respectively)
-!HotheadGFXPg           = 3         ;> if 0, the hothead's gonna use the 1st GFX page; if 1, then the 2nd GFX page
+!HotheadGFXPg           = 1         ;> if 0, the hothead's gonna use the 1st GFX page; if 1, then the 2nd GFX page
 
 ; the tile numbers for the body tiles
 ; in order for each frame: TOPLEFT, TOPRIGHT, BOTTOMLEFT, and BOTTOMRIGHT
@@ -59,17 +59,29 @@ hothead_body_flip_props:
     db $40,$40,$80,$80              ;> 2nd frame
 
 ;======================================================================================================================;
+!GroundFuzzySprID       = $05       ;> the vanilla sprite IDs to overwrite with the new ground fuzzy
+
+!GroundFuzzyUpperTileL  = $BC       ;> the TOPLEFT tile of the ground fuzzy
+!GroundFuzzyLowerTileL  = $BD       ;> the BOTTOMLEFT tile of the ground fuzzy
+
+!GroundFuzzyUpperTileR  = $BE       ;> the TOPRIGHT tile of the ground fuzzy
+!GroundFuzzyLowerTileR  = $BF       ;> the BOTTOMRIGHT tile of the ground fuzzy
+
+!GroundFuzzyPal         = 1         ;> the ground fuzzy's palette (set to 0-7 for palettes 0x8-0xF respectively)
+!GroundFuzzyGFXPg       = 0         ;> if 0, the ground fuzzy's gonna use the 1st GFX page; if 1, then the 2nd GFX page
+
+;======================================================================================================================;
 ; end of user defines                                                                                                  ;
 ;======================================================================================================================;
 ; please don't touch these! these are for ease of coding
 !SprMoveDir         = !RAM_SMB3_Level_NorSpr_Table7E1021
 !SprBlinkTimer      = !RAM_SMB3_Level_NorSpr_DecrementingTable7E0518
-!SprTurnTimer       = !RAM_SMB3_Level_NorSpr_DecrementingTable7E0520
+!SprTurnTimer       = !RAM_SMB3_Level_NorSpr_DecrementingTable7E06A6
 
 ;======================================================================================================================;
-; hijacks                                                                                                              ;
+; li'l sparky-related hijacks                                                                                          ;
 ;======================================================================================================================;
-; repoint our desired sprite's main pointer somewhere in vanilla
+; repoint the LI'L SPARKY'S main pointer somewhere in automatically-found freespace
 ; (the pointer is 24-bit, hence we need to multiply the desired sprite no. by 3 to get the right pointer)
 org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!LilSparkySprID*3)
     dl WallFollowersMain
@@ -78,12 +90,13 @@ org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!LilSparkySprID*3)
 org SMB3_NorSprStatus01_Init_NormalSpriteInitPointers+(!LilSparkySprID*3)
     dl WallFollowersInit
 
-; since the li'l sparky uses default interaction, we'll dummy out his stomped-on pointer with 'RTL : NOP : NOP' in little-endian
+; since the sprite uses default interaction, we'll dummy out its stomped-on pointer with 'RTL : NOP : NOP' in little-endian
 org !SprCustInteractTable+(!LilSparkySprID*3)
     dl $EAEA6B
 
-; (since we're using a custom routine for finishing drawing all tiles so that no tiles wrap across the screen,
-; there's no point in setting the visibility detection properties)
+; for the off-screen detection, use a height of 32 pixels & a width of 32 pixels
+org !SprPalHeightWidthProps+!LilSparkySprID
+    db !OA1_HEIGHT32|!OA1_WIDTH32
 
 ; have a block hitbox of 16x16 and ALWAYS use the 16-bit X-position for certain calculations in vertical levels
 org !SprBlkDetectMiscProps+!LilSparkySprID
@@ -94,14 +107,14 @@ org !SprGameHaltMiscProps+!LilSparkySprID
     db !OA3_HALT_NORMALONLY|!OA3_NOTSTOMPABLE|!OA3_TAILATKIMMUNE
 
 ; have a player hitbox of 16x16 and be immune to fireballs!
-org !SprHitboxImmumeProps+!LilSparkySprID
+org !SprHitboxImmuneProps+!LilSparkySprID
     db !OAT_BOUNDBOX01|!OAT_FIREIMMUNITY
 
 ; just run the normal code when killed so we can deal with it ourselves
 org !SprKillActionProps+!LilSparkySprID
     db !KILLACT_NORMALANDKILLED
 
-; set the li'l sparky's pal. as desired
+; set the sprite's palette as desired
 org !SprRealPalTable+!LilSparkySprID
     db !LilSparkyPal
 
@@ -110,7 +123,9 @@ org !SprGFXPageTable+!LilSparkySprID
     db !LilSparkyGFXPg
 
 ;======================================================================================================================;
-; repoint our desired sprite's main pointer somewhere in vanilla
+; hothead-related hijacks                                                                                              ;
+;======================================================================================================================;
+; now repoint the HOTHEAD'S main pointer somewhere in automatically-found freespace
 ; (the pointer is 24-bit, hence we need to multiply the desired sprite no. by 3 to get the right pointer)
 org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!HotheadSprID*3)
     dl WallFollowersMain
@@ -119,12 +134,13 @@ org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!HotheadSprID*3)
 org SMB3_NorSprStatus01_Init_NormalSpriteInitPointers+(!HotheadSprID*3)
     dl WallFollowersInit
 
-; since the hothead uses default interaction, we'll dummy out his stomped-on pointer with 'RTL : NOP : NOP' in little-endian
+; since the sprite uses default interaction, we'll dummy out its stomped-on pointer with 'RTL : NOP : NOP' in little-endian
 org !SprCustInteractTable+(!HotheadSprID*3)
     dl $EAEA6B
 
-; (since we're using a custom routine for finishing drawing all tiles so that no tiles wrap across the screen,
-; there's no point in setting the visibility detection properties)
+; for the off-screen detection, use a height of 32 pixels & a width of 32 pixels
+org !SprPalHeightWidthProps+!HotheadSprID
+    db !OA1_HEIGHT32|!OA1_WIDTH32
 
 ; have a block hitbox of 16x16 and ALWAYS use the 16-bit X-position for certain calculations in vertical levels
 org !SprBlkDetectMiscProps+!HotheadSprID
@@ -135,20 +151,64 @@ org !SprGameHaltMiscProps+!HotheadSprID
     db !OA3_HALT_NORMALONLY|!OA3_NOTSTOMPABLE|!OA3_TAILATKIMMUNE
 
 ; have a player hitbox of 16x16 and be immune to fireballs!
-org !SprHitboxImmumeProps+!HotheadSprID
+org !SprHitboxImmuneProps+!HotheadSprID
     db !OAT_BOUNDBOX01|!OAT_FIREIMMUNITY
 
 ; just run the normal code when killed so we can deal with it ourselves
 org !SprKillActionProps+!HotheadSprID
     db !KILLACT_NORMALANDKILLED
 
-; set the hothead's pal. as desired
+; set the sprite's palette as desired
 org !SprRealPalTable+!HotheadSprID
     db !HotheadPal
 
 ; ditto with the sprite page
 org !SprGFXPageTable+!HotheadSprID
     db !HotheadGFXPg
+
+;======================================================================================================================;
+; ground fuzzy-related hijacks                                                                                         ;
+;======================================================================================================================;
+; repoint the GROUND FUZZY'S main pointer somewhere in automatically-found freespace
+; (the pointer is 24-bit, hence we need to multiply the desired sprite no. by 3 to get the right pointer)
+org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!GroundFuzzySprID*3)
+    dl WallFollowersMain
+
+; ditto with the init pointer
+org SMB3_NorSprStatus01_Init_NormalSpriteInitPointers+(!GroundFuzzySprID*3)
+    dl WallFollowersInit
+
+; since the sprite uses default interaction, we'll dummy out its stomped-on pointer with 'RTL : NOP : NOP' in little-endian
+org !SprCustInteractTable+(!GroundFuzzySprID*3)
+    dl $EAEA6B
+
+; for the off-screen detection, use a height of 32 pixels & a width of 32 pixels
+org !SprPalHeightWidthProps+!GroundFuzzySprID
+    db !OA1_HEIGHT32|!OA1_WIDTH32
+
+; have a block hitbox of 16x16 and ALWAYS use the 16-bit X-position for certain calculations in vertical levels
+org !SprBlkDetectMiscProps+!GroundFuzzySprID
+    db !OA2_TDOGRP1|!OA2_USE16BITX
+
+; just run the normal code when frozen so we can deal with it ourselves, be unstompable, and be immune to tail attacks!
+org !SprGameHaltMiscProps+!GroundFuzzySprID
+    db !OA3_HALT_NORMALONLY|!OA3_NOTSTOMPABLE|!OA3_TAILATKIMMUNE
+
+; have a player hitbox of 16x16 and be immune to fireballs!
+org !SprHitboxImmuneProps+!GroundFuzzySprID
+    db !OAT_BOUNDBOX01|!OAT_FIREIMMUNITY
+
+; just run the normal code when killed so we can deal with it ourselves
+org !SprKillActionProps+!GroundFuzzySprID
+    db !KILLACT_NORMALANDKILLED
+
+; set the sprite's palette as desired
+org !SprRealPalTable+!GroundFuzzySprID
+    db !GroundFuzzyPal
+
+; ditto with the sprite page
+org !SprGFXPageTable+!GroundFuzzySprID
+    db !GroundFuzzyGFXPg
 
 ; always make sure to automatically find freespace, otherwise it'll overwrite important vanilla data!
 freecode
@@ -190,13 +250,23 @@ WallFollowersMain:
 ; always run the GFX, which will be far different depending on the sprite
     LDA.w !RAM_SMB3_Level_NorSpr_SpriteID,x
     CMP #!LilSparkySprID
-    BEQ +
+    BEQ .lilSparkyGFX
+    CMP #!GroundFuzzySprID
+    BNE .hotheadGFX
+.fuzzyGFX
+    JSL FuzzyGFX
+    BRA .mainCont
+
+.hotheadGFX
     JSL HotheadGFX
-    BRA ++
-+   JSL LilSparkyGFX
+    BRA .mainCont
+
+.lilSparkyGFX
+    JSL LilSparkyGFX
 
 ; if the sprite's NOT alive or the game's frozen, return and simply draw the graphics!
-++  LDA.w !RAM_SMB3_Level_NorSpr_CurrentStatus,x
+.mainCont
+    LDA.w !RAM_SMB3_Level_NorSpr_CurrentStatus,x
     EOR #$02
     ORA.b !GameFrozenFlag
     BEQ .alive
@@ -233,12 +303,11 @@ WallFollowersMain:
 ; interact with blocks
     JSL !SprBlockInteract
 
-;; call the code for aligning the sprite properly with the ground if it happens to touch it, as it seems that
-;; '!SprBlockInteract/Object_WorldDetectN1' doesn't handle that already unlike SMW's sprite-block interaction routine
-;    LDA.b !SprBlkdStatus,x
-;    AND #$04
-;    BEQ +
-;    JSL !AlignSprWithGround
+; call the code for aligning the sprite properly with the ground & slopes upon contact with them so it can move smoothly on them!
+    LDA.b !SprBlkdStatus,x
+    AND #$04
+    BEQ +
+    JSL !AlignSprWithGround
 
 ; if hitting a wall, set the timer for turning
 +   LDA.b !SprBlkdStatus,x
@@ -248,12 +317,14 @@ WallFollowersMain:
 ; (in between these lines of code in the original SMW, a misc. decrementing sprite table was set to 0x8 for showing the
 ; spike top's diagonal frame, plus more code checking the urchin's sprite no., after which the turning timer would be set to 0x38)
 
-; this is how long the hothead will take to turn, and the li'l sparky will take HALF that time, so TWICE as fast
+; this is how long the hothead will take to turn, and the li'l sparky & ground fuzzy will take HALF that time, so TWICE as fast
     LDA #!TimeTillTurn
     LDY.w !RAM_SMB3_Level_NorSpr_SpriteID,x
     CPY #!LilSparkySprID
+    BEQ ++
+    CPY #!GroundFuzzySprID
     BNE +
-    LSR
+++  LSR
 
 ; (in between these lines of code in the original SMW, there was an unnecessary 'NOP' here...)
 
@@ -263,13 +334,16 @@ WallFollowersMain:
 ; the turning timer would be set to 0x20)
 
 ;======================================================================================================================;
-; this is what frame within the turning timer the hothead will change direction at, and the li'l sparky will take HALF that time
+; this is what frame within the turning timer the hothead will change direction at, and the li'l sparky & ground fuzzy
+; will take HALF that time
 .startTurning
     LDA #!TimeTillChangeDir
     LDY.w !RAM_SMB3_Level_NorSpr_SpriteID,x
     CPY #!LilSparkySprID
+    BEQ ++
+    CPY #!GroundFuzzySprID
     BNE +
-    LSR
+++  LSR
 
 ; (in between these lines of code in the original SMW, there was another 'NOP' here...)
 
@@ -320,11 +394,13 @@ WallFollowersMain:
     STA.w !RAM_SMB3_Level_NorSpr_XSpeed,y
     PLX
 
-; if the current sprite's the li'l sparky, double its X/Y-speeds!
+; if the current sprite's the li'l sparky or ground fuzzy, double its X/Y-speeds!
     LDA.w !RAM_SMB3_Level_NorSpr_SpriteID,x
     CMP #!LilSparkySprID
+    BEQ +
+    CMP #!GroundFuzzySprID
     BNE .updatePos
-    ASL.b !RAM_SMB3_Level_NorSpr_XSpeed,x
++   ASL.b !RAM_SMB3_Level_NorSpr_XSpeed,x
     ASL.b !RAM_SMB3_Level_NorSpr_YSpeed,x
 .updatePos
 ; update the X/Y-positions
@@ -335,13 +411,20 @@ WallFollowersMain:
 ; li'l sparky graphics routine                                                                                         ;
 ;======================================================================================================================;
 LilSparkyGFX:
+; every 8 frames, X-flip the li'l sparky's body
+    LDA.b !RAM_SMB3_Global_FrameCounter
+    AND #$07
+    BNE +
+    LDA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,x
+    EOR #$40
+    STA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,x
+
 ; call 'Object_ShakeAndCalcSprite' (a.k.a. 'CODE_279DF9' in YF's orig. disasm.) & restore the sprite slot index afterwards,
 ; as the routine doesn't already restore it
 +   JSL !SprShakeAndCalcTilePos
     LDX.b !SprSlotIndex
 
-; as it turns out, the above routine sets up our raw 'YXPPCCCT' properties! however, we must get into 16-bit 'X/Y'
-; to access the OAM index via sprite RAM $C6,x and also draw the hothead's four tiles on our own
+; since we wanna change the tiles, we must get into 16-bit 'X/Y' to access the OAM index via sprite RAM $C6,x
     REP #$10
     LDY.b !SprOAMIndex,x
 
@@ -356,16 +439,6 @@ LilSparkyGFX:
 ; ...and then the 'YXPPCCCT', which will change based on the frame counter
     LDA.b !RAM_SMB3_Global_ScratchRAM02
     ORA.b !RAM_SMB3_Global_ScratchRAM03
-    STA.w SMB3_OAMBuffer[$00].Prop,y
-
-; now manipulate the frame counter with 'LSRs', and if it hits 0x1, X-flip the tiles!
-    LDA.b !RAM_SMB3_Global_FrameCounter
-    LSR #3
-    AND #$01
-    BNE .return16Bit
-
-    LDA.w SMB3_OAMBuffer[$00].Prop,y
-    EOR #$40
     STA.w SMB3_OAMBuffer[$00].Prop,y
 
 ; exit 16-bit 'X/Y' & return, restoring the sprite slot index in the progress
@@ -415,21 +488,20 @@ HotheadGFX:
     LDA.w !SprBlinkTimer,x
     BEQ +
     LDY #!HotheadClosedEyeTile      ;> CLOSED eye tile when the blinking timer's ticking
-+   STY.b !RAM_SMB3_Global_ScratchRAM0C
++   STY.b !RAM_SMB3_Global_ScratchRAM0D
 
 ; call 'Object_ShakeAndCalcSprite' (a.k.a. 'CODE_279DF9' in YF's orig. disasm.) & restore the sprite slot index afterwards,
 ; as the routine doesn't already restore it
 +   JSL !SprShakeAndCalcTilePos
     LDX.b !SprSlotIndex
 
-; as it turns out, the above routine sets up our raw 'YXPPCCCT' properties! however, we must get into 16-bit 'X/Y'
-; to access the OAM index via sprite RAM $C6,x and also draw the hothead's four tiles on our own
+; since we wanna change the tiles, we must get into 16-bit 'X/Y' to access the OAM index via sprite RAM $C6,x
     REP #$10
     LDY.b !SprOAMIndex,x
 
 ; first, start with the eyes! they've gotta be IN FRONT of the hothead's whole body
 ; to make things a little easier, we'll write the eye tile first
-    LDA.b !RAM_SMB3_Global_ScratchRAM0C
+    LDA.b !RAM_SMB3_Global_ScratchRAM0D
     STA.w SMB3_OAMBuffer[$00].Tile,y
 
 ; since we're in 16-bit 'X/Y', we'll need to clear the HIGH byte of '!SprMoveDir' before transferring it to 'X',
@@ -440,11 +512,11 @@ HotheadGFX:
     TAX
 
 ; now set the eye tile's X/Y-displacements according to the movement direction
-    LDA.b !RAM_SMB3_Global_ScratchRAM01
-    CLC : ADC.l hothead_eye_x_disps,x
+    LDA.l hothead_eye_x_disps,x
+    CLC : ADC.b !RAM_SMB3_Global_ScratchRAM01
     STA.w SMB3_OAMBuffer[$00].XDisp,y
-    LDA.b !RAM_SMB3_Global_ScratchRAM00
-    ADC.l hothead_eye_y_disps,x
+    LDA.l hothead_eye_y_disps,x
+    CLC : ADC.b !RAM_SMB3_Global_ScratchRAM00
     STA.w SMB3_OAMBuffer[$00].YDisp,y
 
 ; now setup the eye tile's 'YXPPCCCT' via scratch RAM $02 & $03 from 'Object_ShakeAndCalcSprite'
@@ -530,6 +602,34 @@ HotheadGFX:
     LDY #$FF
     LDA #$04
     JML CustFinishOAMWrite
+
+;======================================================================================================================;
+; fuzzy graphics routine                                                                                               ;
+;======================================================================================================================;
+FuzzyGFX:
+; every 8 frames, X-flip the ground fuzzy's body
+    LDA.b !RAM_SMB3_Global_FrameCounter
+    AND #$07
+    BNE +
+    LDA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,x
+    EOR #$40
+    STA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,x
+
+; prepare the ground fuzzy's tiles
++   LDA #!GroundFuzzyUpperTileL
+    STA.b !RAM_SMB3_Global_ScratchRAM0A
+    LDA #!GroundFuzzyLowerTileL
+    STA.b !RAM_SMB3_Global_ScratchRAM0B
+    LDA #!GroundFuzzyUpperTileR
+    STA.b !RAM_SMB3_Global_ScratchRAM0C
+    LDA #!GroundFuzzyLowerTileR
+    STA.b !RAM_SMB3_Global_ScratchRAM0D
+
+; don't let both halves be X-flipped!
+    LDA #$00
+
+; call our custom 16x16 GFX routine!
+    JML Draw16x16Sprite
 
 ;======================================================================================================================;
 ; miscellaneous tables                                                                                                 ;

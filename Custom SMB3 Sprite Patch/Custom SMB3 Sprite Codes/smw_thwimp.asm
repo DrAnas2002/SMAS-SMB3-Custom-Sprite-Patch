@@ -11,7 +11,7 @@
 ;======================================================================================================================;
 ; start of user defines                                                                                                ;
 ;======================================================================================================================;
-!ThwimpSprID        = $02       ;> this is the vanilla sprite ID to overwrite with the new thwimp
+!ThwimpSprID        = $02       ;> this is the vanilla sprite ID to overwrite with the thwimp
 
 !JumpXSpeed         = $10       ;> the thwimp's base X-speed while jumping (can be positive or negative as per choice)
 !JumpYSpeed         = -$60      ;> the thwimp's base Y-speed while jumping (MUST BE NEGATIVE!)
@@ -26,14 +26,14 @@
 ;======================================================================================================================;
 !TimeUntilJump      = $40       ;> how long for the thwimp to wait before jumping
 
-; for the SFX values, please see 'SMB3/Misc_Defines_SMB3.asm'!
-!JumpSFX            = !Define_SMAS_Sound0060_HitHead
+; the thwimp's ground-landing SFX. for the SFX values, please see 'SMB3/Misc_Defines_SMB3.asm'!
+!LandSFX            = !Define_SMAS_Sound0060_HitHead
 
 ; for the SFX port, the following options are appropriate:
 ;   - '!RAM_SMB3_Global_SoundCh1' (corresponds to the SFX defines with 'Sound0060' in the name)
 ;   - '!RAM_SMB3_Global_SoundCh2' (corresponds to the SFX defines with 'Sound0061' in the name)
 ;   - '!RAM_SMB3_Global_SoundCh3' (corresponds to the SFX defines with 'Sound0063' in the name)
-!JumpSFXPort        = !RAM_SMB3_Global_SoundCh1
+!LandSFXPort        = !RAM_SMB3_Global_SoundCh1
 
 !ThwimpUpperTileL   = $56       ;> the TOPLEFT tile of the thwimp
 !ThwimpLowerTileL   = $57       ;> the BOTTOMLEFT tile of the thwimp
@@ -56,7 +56,7 @@
 ;======================================================================================================================;
 ; hijacks                                                                                                              ;
 ;======================================================================================================================;
-; repoint our desired sprite's main pointer somewhere in vanilla freespace
+; repoint the thwimp's main pointer somewhere in automatically-found freespace
 ; (the pointer is 24-bit, hence we need to multiply the desired sprite no. by 3 to get the right pointer)
 org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!ThwimpSprID*3)
     dl SMWThwimpMain
@@ -65,13 +65,13 @@ org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!ThwimpSprID*3)
 org SMB3_NorSprStatus01_Init_NormalSpriteInitPointers+(!ThwimpSprID*3)
     dl SMWThwimpInit
 
-; since the thwimp uses default interaction, we'll dummy out his stomped-on pointer with 'RTL : NOP : NOP' in little-endian
+; since the sprite uses default interaction, we'll dummy out its stomped-on pointer with 'RTL : NOP : NOP' in little-endian
 org !SprCustInteractTable+(!ThwimpSprID*3)
     dl $EAEA6B
 
-; for the visibility detection, use a height of 32 pixels & a width of 16
+; for the off-screen detection, use a height of 32 pixels & a width of 32 pixels
 org !SprPalHeightWidthProps+!ThwimpSprID
-    db !OA1_HEIGHT32|!OA1_WIDTH16
+    db !OA1_HEIGHT32|!OA1_WIDTH32
 
 ; have a block hitbox of 16x16 and ALWAYS use the 16-bit X-position for certain calculations in vertical levels
 org !SprBlkDetectMiscProps+!ThwimpSprID
@@ -82,14 +82,14 @@ org !SprGameHaltMiscProps+!ThwimpSprID
     db !OA3_HALT_NORMALONLY|!OA3_NOTSTOMPABLE|!OA3_TAILATKIMMUNE
 
 ; have a player hitbox of 16x16 and be immune to fireballs!
-org !SprHitboxImmumeProps+!ThwimpSprID
+org !SprHitboxImmuneProps+!ThwimpSprID
     db !OAT_BOUNDBOX01|!OAT_FIREIMMUNITY
 
 ; just run the normal code when killed so we can deal with it ourselves
 org !SprKillActionProps+!ThwimpSprID
     db !KILLACT_NORMALANDKILLED
 
-; set the thwimp's pal. as desired
+; set the sprite's palette as desired
 org !SprRealPalTable+!ThwimpSprID
     db !ThwimpPal
 
@@ -196,8 +196,8 @@ SMWThwimpMain:
 ;======================================================================================================================;
 .landOnGround
 ; play the SFX for hitting the ground
-    LDA #!JumpSFX
-    STA.w !JumpSFXPort
+    LDA #!LandSFX
+    STA.w !LandSFXPort
 
 ; how long to wait before jumping
     LDA #!TimeUntilJump
@@ -207,52 +207,27 @@ SMWThwimpMain:
 ; graphics routine (continues directly from the main code)                                                             ;
 ;======================================================================================================================;
 ThwimpGFX:
-; first, to avoid the thwimp's tiles from wrapping across the screen, check if he's horizontally or vertically off-screen
-    JSL SMB3_CheckIfSpriteIsHorizontallyOffScreen_Main
-    JSL SMB3_CheckIfSpriteIsVerticallyOffScreen_Main
+; prepare the thwimp's tiles
+    LDA #!ThwimpUpperTileL
+    STA.b !RAM_SMB3_Global_ScratchRAM0A
+    LDA #!ThwimpLowerTileL
+    STA.b !RAM_SMB3_Global_ScratchRAM0B
+    LDA #!ThwimpUpperTileR
+    STA.b !RAM_SMB3_Global_ScratchRAM0C
+    LDA #!ThwimpLowerTileR
+    STA.b !RAM_SMB3_Global_ScratchRAM0D
 
-; call 'Object_ShakeAndDraw' (a.k.a. 'CODE_279EBC' in YF's orig. disasm.)
-    JSL !SprShakeAndDraw
+; here, we do a bitwise 'NOT' with the '~' (tilde) to effectively cancel out the Y-flip bit
+    LDA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,x
+    AND #~$80
+    STA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,x
 
-; as it turns out, the above routine already sets up the X/Y-positions of our four tiles to make a 16x16 sprite,
-; and it even sets up our palettes! however, we wanna change the tiles, so we must get into 16-bit 'X/Y'
-; to access the OAM index via sprite RAM $C6,x
-    REP #$10
-    LDY.b !SprOAMIndex,x
-
-if !MirrorBothHalves == 1
 ; flip the second half of the thwimp's body if applicable
-    LDA.w SMB3_OAMBuffer[$01].Prop,y
-    EOR #$40
-    STA.w SMB3_OAMBuffer[$01].Prop,y
-    STA.w SMB3_OAMBuffer[$03].Prop,y
+if !MirrorBothHalves == 1
+    LDA #$01
+else
+    LDA #$00
 endif
 
-; now draw the four tiles for the thwimp
-    LDA #!ThwimpUpperTileL
-    STA.w SMB3_OAMBuffer[$00].Tile,y
-    LDA #!ThwimpUpperTileR
-    STA.w SMB3_OAMBuffer[$01].Tile,y
-    LDA #!ThwimpLowerTileL
-    STA.w SMB3_OAMBuffer[$02].Tile,y
-    LDA #!ThwimpLowerTileR
-    STA.w SMB3_OAMBuffer[$03].Tile,y
-
-; if the sprite's Y-flipped in general (such as when dead), swap around the tiles!
-    LDA !RAM_SMB3_Level_NorSpr_YXPPCCCT,x
-    AND #$80
-    BEQ .return16Bit
-
-    LDA #!ThwimpUpperTileL
-    STA.w SMB3_OAMBuffer[$02].Tile,y
-    LDA #!ThwimpUpperTileR
-    STA.w SMB3_OAMBuffer[$03].Tile,y
-    LDA #!ThwimpLowerTileL
-    STA.w SMB3_OAMBuffer[$00].Tile,y
-    LDA #!ThwimpLowerTileR
-    STA.w SMB3_OAMBuffer[$01].Tile,y
-
-; exit 16-bit 'X/Y' & return!
-.return16Bit
-    SEP #$10
-    RTL
+; call our custom 16x16 GFX routine!
+    JML Draw16x16Sprite

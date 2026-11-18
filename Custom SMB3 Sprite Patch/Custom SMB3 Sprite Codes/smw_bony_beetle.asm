@@ -15,7 +15,7 @@
 ;======================================================================================================================;
 ; start of user defines                                                                                                ;
 ;======================================================================================================================;
-!BonyBeetleSprID        = $04       ;> this is the vanilla sprite ID to overwrite with the new bony beetle
+!BonyBeetleSprID        = $01       ;> this is the vanilla sprite ID to overwrite with the new bony beetle
 
 !BaseXSpeed             = $08       ;> the bony beetle's base X-speed, shouldn't be less than $04!
 !CrumbledTime           = $FF       ;> how long he stays in his crumbled state after being stomped on
@@ -67,7 +67,7 @@ bony_beetle_frame_pg:
 ;======================================================================================================================;
 ; hijacks                                                                                                              ;
 ;======================================================================================================================;
-; repoint our desired sprite's main pointer somewhere in vanilla freespace
+; repoint the bony beetle's main pointer somewhere in automatically-found freespace
 ; (the pointer is 24-bit, hence we need to multiply the desired sprite no. by 3 to get the right pointer)
 org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!BonyBeetleSprID*3)
     dl SMWBonyBeetleMain
@@ -80,9 +80,9 @@ org SMB3_NorSprStatus01_Init_NormalSpriteInitPointers+(!BonyBeetleSprID*3)
 org !SprCustInteractTable+(!BonyBeetleSprID*3)
     dl BonyBeetleCustInt
 
-; for the visibility detection, use a height of 32 pixels & a width of 16
+; for the off-screen detection, use a height of 32 pixels & a width of 32 pixels
 org !SprPalHeightWidthProps+!BonyBeetleSprID
-    db !OA1_HEIGHT32|!OA1_WIDTH16
+    db !OA1_HEIGHT32|!OA1_WIDTH32
 
 ; have a block hitbox of 16x16 and ALWAYS use the 16-bit X-position for certain calculations in vertical levels
 org !SprBlkDetectMiscProps+!BonyBeetleSprID
@@ -93,14 +93,14 @@ org !SprGameHaltMiscProps+!BonyBeetleSprID
     db !OA3_HALT_NORMALONLY|!OA3_NOTSTOMPABLE|!OA3_TAILATKIMMUNE
 
 ; have a player hitbox of 16x16, turn away upon touching another sprite, and be immune to fireballs!
-org !SprHitboxImmumeProps+!BonyBeetleSprID
+org !SprHitboxImmuneProps+!BonyBeetleSprID
     db !OAT_BOUNDBOX01|!OAT_BOUNCEOFFOTHERS|!OAT_FIREIMMUNITY
 
 ; just run the normal code when killed so we can deal with it ourselves
 org !SprKillActionProps+!BonyBeetleSprID
     db !KILLACT_NORMALANDKILLED
 
-; set the sprite's pal. as desired
+; set the sprite's palette as desired
 org !SprRealPalTable+!BonyBeetleSprID
     db !BonyBeetlePal
 
@@ -116,19 +116,20 @@ freecode
 ;======================================================================================================================;
 ; initialize the bony beetle's X-speed & flip towards the player based on the last time the screen scrolled, and in addition,
 ; initialize his timer to start hiding in his shell
-; (setup the bank wrapper in the process 'cause both the init and main are likely to be in separate freespace banks
-; & we can't properly access the tables otherwise)
+; (we'll have to do some register shenanigans, such as transferring the sprite slot index from 'X' to 'Y',  since we can't
+; easily access the necessary tables here with 'Y', and we'll also restore the sprite slot index appropriately afterwards)
 SMWBonyBeetleInit:
-    PHB : PHK : PLB
-    LDY.b !LastScrollDir
-    LDA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,x
-    EOR.w bony_beetle_x_flip,y
-    STA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,x
-    LDA.w bony_beetle_x_spds,y
-    STA.b !RAM_SMB3_Level_NorSpr_XSpeed,x
+    TXY
+    LDX.b !LastScrollDir
+    LDA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,y
+    EOR.l bony_beetle_x_flip,x
+    STA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,y
+    LDA.l bony_beetle_x_spds,x
+    STA.w !RAM_SMB3_Level_NorSpr_XSpeed,y
+
+    LDX.b !SprSlotIndex
     LDA #!TimeUntilHide
     STA.w !BonyBeetleUntilHideTimer,x
-    PLB
     RTL
 
 ;======================================================================================================================;
@@ -142,7 +143,7 @@ SMWBonyBeetleMain:
     LDA.w !RAM_SMB3_Level_NorSpr_CurrentStatus,x
     EOR #$02
     ORA.b !GameFrozenFlag
-    BNE .return
+    BNE .return2
 
 ;======================================================================================================================;
 .alive
@@ -152,6 +153,14 @@ SMWBonyBeetleMain:
 ; apply vanilla gravity and interact with blocks, plus, check for the player's contact!
     JSL SprGravAndBlkInteract
     JSL !CheckPlayerCont
+
+; turn away after touching other sprites (unfortunately the vanilla routine for it can't be accessed with 'JSR',
+; so we must do a 'JSL2RTS' to it)
+    PHK
+    PEA.w .return-1
+    PEA.w CODE_279B7D-1
+    JML !TurnAfterTouchingSprJSR
+.return
 
 ; skip straight to the not-moving code if the stun timer's running! otherwise, clear the crumbled flag
     LDA.w !BonyBeetleStunTimer,x
@@ -167,8 +176,9 @@ SMWBonyBeetleMain:
 ; handle the conveyor belt interaction
 +   JSL !SprConveyorCheckCarry
 
-; here, the output 'Y' from the above routine = 0xFF if the sprite goes AGAINST the conveyor, but it's 0x1 if it goes WITH it
-; however, for easier indexing, we'll increase the output by 1, so in actuality the outputs now become 0x0 & 0x2
+; here, RAM $07B5 from the above routine = 0xFF if the sprite goes AGAINST the conveyor, but it's 0x1 if it goes WITH it
+; furthermore, in the normal sprite-block interaction routine, it seems that $07B5 is set to 0x0 when on normal ground
+; however, for easier indexing, we'll increase it by 1, so in actuality the outputs now become 0x0, 0x2 & 0x1 respectively
     LDY.w !SprConvTileTouched
     INY
 
@@ -190,14 +200,21 @@ SMWBonyBeetleMain:
 ; so that each sprite animates uniquely at a proper rate)
     LDA.b !SprBlkdStatus,x
     AND #$04
-    BEQ .return
+    BEQ .return2
     TXA
     ASL #2
     EOR.b !RAM_SMB3_Global_FrameCounter
-    LSR #3
-    AND #$01
+    LSR #2
+
+; animate faster if the bony beetle goes AGAINST the conveyor, otherwise, add an additional 'LSR' to further slow it down
+; (we check the UNAFFECTED output as amazingly, the 'INY' from before DIDN'T reload 'Y' at all!)
+    LDY.w !SprConvTileTouched
+    CPY #$FF
+    BEQ +
+    LSR
++   AND #$01
     STA.w !BonyBeetleAnimFrame,x
-.return
+.return2
     RTL
 
 ;======================================================================================================================;
@@ -233,12 +250,12 @@ SMWBonyBeetleMain:
 ; finally, if EXACTLY 0x1, return!
 ; (without checking it like this, the bony beetle will immediately start hiding again)
     CPY #$01
-    BNE .return2
+    BNE .return3
 
 ; otherwise, reset the time until the bony beetle's gonna hide
     LDA #!TimeUntilHide
     STA.w !BonyBeetleUntilHideTimer,x
-.return2
+.return3
     RTL
 
 ;======================================================================================================================;
@@ -264,47 +281,56 @@ SMWBonyBeetleMain:
 ; (without checking it like this, the bony beetle will immediately start hiding again)
 +   LDA.w !BonyBeetleStunTimer,x
     CMP #$01
-    BNE .return3
+    BNE .return4
 
 ; otherwise, get back up and face the player head-on, and reset the time until hiding!
     JSL !SubHorzPosCoarse
     STA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,x
     LDA #!TimeUntilHide
     STA.w !BonyBeetleUntilHideTimer,x
-.return3
+.return4
     RTL
 
 ;======================================================================================================================;
 ; graphics routine                                                                                                     ;
 ;======================================================================================================================;
 BonyBeetleGFX:
-; first, to avoid the bony beetle's tiles from wrapping across the screen, check if he's horizontally or vertically off-screen
-    JSL SMB3_CheckIfSpriteIsHorizontallyOffScreen_Main
-    JSL SMB3_CheckIfSpriteIsVerticallyOffScreen_Main
-
 ; backup the 'YXPPCCCT' sprite table in advance as we'll need to check it more easily
     LDA.w !RAM_SMB3_Level_NorSpr_YXPPCCCT,x
+    STA.b !RAM_SMB3_Global_ScratchRAM08
+
+; prepare the bony beetle's tiles based on the current animation frame
+; (we'll multiply the current frame by 4 since we have four tiles PER FRAME to work with)
+    LDA.w !BonyBeetleAnimFrame,x
+    ASL #2
+    TAX
+    LDA.l bony_beetle_tiles,x
     STA.b !RAM_SMB3_Global_ScratchRAM0A
+    LDA.l bony_beetle_tiles+2,x
+    STA.b !RAM_SMB3_Global_ScratchRAM0B
+    LDA.l bony_beetle_tiles+1,x
+    STA.b !RAM_SMB3_Global_ScratchRAM0C
+    LDA.l bony_beetle_tiles+3,x
+    STA.b !RAM_SMB3_Global_ScratchRAM0D
 
-; call 'Object_ShakeAndDraw' (a.k.a. 'CODE_279EBC' in YF's orig. disasm.)
-    JSL !SprShakeAndDraw
+; don't let both halves be X-flipped!
+    LDA #$00
 
-; as it turns out, the above routine already sets up the X/Y-positions of our four tiles to make a 16x16 sprite,
-; and it even sets up our palettes! however, we wanna change the tiles, so we must get into 16-bit 'X/Y'
-; to access the OAM index via sprite RAM $C6,x
+; call our custom 16x16 GFX routine!
+    JSL Draw16x16Sprite
+
+; get into 16-bit 'X/Y' again to access the OAM index properly
     REP #$10
     LDY.b !SprOAMIndex,x
 
-; since we're in 16-bit 'X/Y', we'll need to clear the HIGH byte of '!BonyBeetleAnimFrame' before transferring it to 'X'
-; as our sprite page & tilemap indexes, otherwise crashes will likely ensue. we'll preserve the base cleared value first
+; now based on the animation frame again, change the sprite page accordingly as well
+; (it seems I cannot manipulate the sprite table counterpart, and since we'll be in 16-bit 'X/Y', we'll have to clear
+; the HIGH byte of '!BonyBeetleAnimFrame' to avoid confusing issues)
     LDA #$00
     XBA
     LDA.w !BonyBeetleAnimFrame,x
     TAX
-    PHA
 
-; now first, based on the above, change the sprite page accordingly first
-; (it seems I cannot manipulate the sprite table counterpart...)
     LDA.w SMB3_OAMBuffer[$00].Prop,y
     EOR.l bony_beetle_frame_pg,x
     STA.w SMB3_OAMBuffer[$00].Prop,y
@@ -312,65 +338,7 @@ BonyBeetleGFX:
     STA.w SMB3_OAMBuffer[$02].Prop,y
     STA.w SMB3_OAMBuffer[$03].Prop,y
 
-; now draw the four tiles for the bony beetle, indexed by the animation frame TIMES 4 since we animate four tiles at once
-    PLA
-    ASL #2
-    TAX
-    LDA.l bony_beetle_tiles,x
-    STA.w SMB3_OAMBuffer[$00].Tile,y
-    LDA.l bony_beetle_tiles+1,x
-    STA.w SMB3_OAMBuffer[$01].Tile,y
-    LDA.l bony_beetle_tiles+2,x
-    STA.w SMB3_OAMBuffer[$02].Tile,y
-    LDA.l bony_beetle_tiles+3,x
-    STA.w SMB3_OAMBuffer[$03].Tile,y
-
-; swap the tiles accordingly if X-flipped (unfortunately, because of how seemingly complex & messy SMB3's GFX routines are,
-; if I directly manipulate the tile X/Y-displacements, the tiles will wrap across the screen, which is VERY frustrating...)
-    LDA.b !RAM_SMB3_Global_ScratchRAM0A
-    AND #$40
-    BEQ .notXFlipped
-
-    LDA.l bony_beetle_tiles,x
-    STA.w SMB3_OAMBuffer[$01].Tile,y
-    LDA.l bony_beetle_tiles+1,x
-    STA.w SMB3_OAMBuffer[$00].Tile,y
-    LDA.l bony_beetle_tiles+2,x
-    STA.w SMB3_OAMBuffer[$03].Tile,y
-    LDA.l bony_beetle_tiles+3,x
-    STA.w SMB3_OAMBuffer[$02].Tile,y
-
-;======================================================================================================================;
-.notXFlipped
-; if Y-flipped in general (such as when dead), swap around the tiles!
-    LDA.b !RAM_SMB3_Global_ScratchRAM0A
-    BPL .return16Bit
-
-    LDA.l bony_beetle_tiles,x
-    STA.w SMB3_OAMBuffer[$02].Tile,y
-    LDA.l bony_beetle_tiles+1,x
-    STA.w SMB3_OAMBuffer[$03].Tile,y
-    LDA.l bony_beetle_tiles+2,x
-    STA.w SMB3_OAMBuffer[$00].Tile,y
-    LDA.l bony_beetle_tiles+3,x
-    STA.w SMB3_OAMBuffer[$01].Tile,y
-
-; swap the tiles accordingly AGAIN if X-flipped AND upside-down at once
-    LDA.b !RAM_SMB3_Global_ScratchRAM0A
-    AND #$40
-    BEQ .return16Bit
-
-    LDA.l bony_beetle_tiles,x
-    STA.w SMB3_OAMBuffer[$03].Tile,y
-    LDA.l bony_beetle_tiles+1,x
-    STA.w SMB3_OAMBuffer[$02].Tile,y
-    LDA.l bony_beetle_tiles+2,x
-    STA.w SMB3_OAMBuffer[$01].Tile,y
-    LDA.l bony_beetle_tiles+3,x
-    STA.w SMB3_OAMBuffer[$00].Tile,y
-
-; exit 16-bit 'X/Y' & return, restoring the sprite slot index in the progress
-.return16Bit
+; exit 16-bit 'X/Y', restore the sprite slot index, & continue!
     SEP #$10
     LDX.b !SprSlotIndex
     RTL
@@ -433,10 +401,10 @@ endif
 ; miscellaneous tables                                                                                                 ;
 ;======================================================================================================================;
 bony_beetle_x_spds:
-    db !BaseXSpeed,-!BaseXSpeed
+    db -!BaseXSpeed,!BaseXSpeed
 
 bony_beetle_conv_x_spds:
     db !BaseXSpeed,!BaseXSpeed,!BaseXSpeed+(!BaseXSpeed/4)
 
 bony_beetle_x_flip:
-    db $40,$00
+    db $00,$40
