@@ -4,6 +4,8 @@ A basic patch for the standalone Super Mario Bros. 3 ROM from [Yoshifanatic's SM
 Here's a taste of what custom sprites are included within the patch, all from Super Mario World...
 (I enabled the vanilla debug code for cycling thru powerups & goomba shoe status)
 
-<img width="256" height="224" alt="Super Mario Bros  3 U" src="https://github.com/user-attachments/assets/b93886f3-2311-4903-a43c-ae4ed0f3e7c6" />
+<img width="256" height="224" alt="ezgif-7b2654c53c6a561f" src="https://github.com/user-attachments/assets/2126791a-e2d7-49fa-b676-d4cc937d14fd" />
+<img width="256" height="224" alt="smb3_gif_2" src="https://github.com/user-attachments/assets/4c0d7367-744a-4c2d-8929-2f215adb6676" />
+
 
 
