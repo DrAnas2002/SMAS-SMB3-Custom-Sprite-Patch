@@ -6,6 +6,8 @@ Here's a taste of what custom sprites are included within the patch, all from Su
 
 <img width="256" height="224" alt="ezgif-7b2654c53c6a561f" src="https://github.com/user-attachments/assets/2126791a-e2d7-49fa-b676-d4cc937d14fd" />
 <img width="256" height="224" alt="smb3_gif_2" src="https://github.com/user-attachments/assets/4c0d7367-744a-4c2d-8929-2f215adb6676" />
+<img width="256" height="224" alt="Super Mario Bros  3 U" src="https://github.com/user-attachments/assets/ac00d3ba-39a6-4e54-881c-6ca55d5a11a8" />
+
 
 
 
