@@ -87,7 +87,7 @@ org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!JumpPirSprID*3)
 org SMB3_NorSprStatus01_Init_NormalSpriteInitPointers+(!JumpPirSprID*3)
     dl JumpPirInit
 
-; since the sprite uses default interaction, we'll dummy out its stomped-on pointer with 'RTL : NOP : NOP' in little-endian
+; since the sprite uses default interaction, we'll dummy out its interaction pointer with 'RTL : NOP : NOP' in little-endian
 org !SprCustInteractTable+(!JumpPirSprID*3)
     dl $EAEA6B
 
@@ -132,7 +132,7 @@ org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!FireJumpPirSprID*3)
 org SMB3_NorSprStatus01_Init_NormalSpriteInitPointers+(!FireJumpPirSprID*3)
     dl JumpPirInit
 
-; since the sprite uses default interaction, we'll dummy out its stomped-on pointer with 'RTL : NOP : NOP' in little-endian
+; since the sprite uses default interaction, we'll dummy out its interaction pointer with 'RTL : NOP : NOP' in little-endian
 org !SprCustInteractTable+(!FireJumpPirSprID*3)
     dl $EAEA6B
 
@@ -197,24 +197,13 @@ JumpPirMain:
     JSL SMB3_CheckIfSpriteIsHorizontallyOffScreen_Main
     JSL SMB3_CheckIfSpriteIsVerticallyOffScreen_Main
 
-; prepare the propeller palette in advance based on the sprite no.
-    LDA #(!JumpPirPropelPal<<1)
+; prepare the propeller's palette, priority, X-flip & sprite page in advance based on the sprite no.
+    LDA #$50|(!JumpPirPropelPal<<1)|!JumpPirGFXPg
     LDY.w !RAM_SMB3_Level_NorSpr_SpriteID,x
     CPY #!FireJumpPirSprID
     BNE +
-    LDA #(!FireJumpPirPropelPal<<1)
+    LDA #$50|(!FireJumpPirPropelPal<<1)|!JumpPirGFXPg
 +   STA.b !RAM_SMB3_Global_ScratchRAM0A
-
-; prepare the sprite page setting likewise and factor in our special priority BEHIND normal FG for efficiency's sake
-; (we can only access the sprite GFX page table with 'X' here since we're not in the same bank as it,
-; hence the register shenanigans. the normal 'YXPPCCCT' output from 'Object_ShakeAndCalcSprite' also forces the priority
-; to be IN FRONT of normal FG and it's difficult to work with that)
-    LDA.w !RAM_SMB3_Level_NorSpr_SpriteID,x
-    TAX
-    LDA.l !SprGFXPageTable,x
-    ORA #$10
-    STA.b !RAM_SMB3_Global_ScratchRAM0B
-    LDX.b !SprSlotIndex
 
 ; call 'Object_ShakeAndCalcSprite' (a.k.a. 'CODE_279DF9' in YF's orig. disasm.) & restore the sprite slot index afterwards,
 ; as the routine doesn't already restore it
@@ -231,24 +220,31 @@ JumpPirMain:
     BEQ +
     JML .finishGFXRoutine
 
-; to make things a bit easier, we'll setup the 'YXPPCCCT' for the head tiles
-; (scratch RAM $03 from 'Object_ShakeAndCalcSprite' already holds the sprite's palette)
-+   LDA.b !RAM_SMB3_Global_ScratchRAM03
-    ORA.b !RAM_SMB3_Global_ScratchRAM0B
+; now set the 'YXPPCCCT', where scratch RAM $02 from 'Object_ShakeAndCalcSprite' already holds the sprite's palette,
+; and $03 holds the other properties such as X/Y-flip
++   LDA.b !RAM_SMB3_Global_ScratchRAM02
+    ORA.b !RAM_SMB3_Global_ScratchRAM03
+
+; now the priority bits from $03 are STRICTLY SET TO 0x30, which makes the sprite go IN FRONT of normal FG
+; all of the sprite's tiles will also be INDIVIDUALLY X/Y-flipped if the WHOLE sprite's flipped accordingly
+; we don't want these things at all, so we'll cancel out all four bits with a bitwise 'NOT' (the '~' here),
+; and set our desired priority to 0x10 to make the sprite go BEHIND all normal FG
+    AND #~$F0
+    ORA #$10
     STA.w SMB3_OAMBuffer[$00].Prop,y
     STA.w SMB3_OAMBuffer[$01].Prop,y
 if !MirrorBothHalves == 1
+; flip the right half of the piranha if applicable
     EOR #$40
 endif
     STA.w SMB3_OAMBuffer[$03].Prop,y
     STA.w SMB3_OAMBuffer[$04].Prop,y
 
-; setup the palette separately for the propeller!
+; setup the propeller's 'YXPPCCCT' now
     LDA.b !RAM_SMB3_Global_ScratchRAM0A
-    ORA.b !RAM_SMB3_Global_ScratchRAM0B
-    EOR #$40
     STA.w SMB3_OAMBuffer[$05].Prop,y
 if !MirrorBothHalves == 1
+; flip the right propeller if applicable
     EOR #$40
 endif
     STA.w SMB3_OAMBuffer[$02].Prop,y

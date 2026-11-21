@@ -84,6 +84,7 @@ endmacro
 %define_label_names(GetSprClippingVals1, CODE_27A413, Object_CalcBoundBox)
 %define_label_names(GetSprClippingVals2, CODE_27A43A, CODE_27A43A)
 %define_label_names(SprSprIntersect, CODE_27A460, CODE_27A460)
+%define_label_names(SprDetectTile, CODE_278E13, Object_DetectTile)
 
 %define_label_names(SprPalHeightWidthProps, DATA_21B047, ObjectGroup_Attributes)
 %define_label_names(SprBlkDetectMiscProps, DATA_21B0FB, ObjectGroup_Attributes2)
@@ -111,6 +112,9 @@ endmacro
 ; original disasm., I included it here as well
 !Vert_Scroll        = $0216
 
+; this RAM address isn't labelled in hericium1's disasm. yet, but it's $0418
+!SprRelGroupIndex   = $0418
+
 ; this RAM address isn't labelled in hericium1's disasm. yet, but it's $06B7
 !SprInWater         = $06B7
 
@@ -119,6 +123,7 @@ endmacro
 
 ; this RAM address isn't labelled in hericium1's disasm. yet, but it's $1FE9
 !RawSpritePal       = $1FE9
+
 
 ;======================================================================================================================;
 ; all the defines from here were copied from 'smb3.asm' of Captain Southbird's disasm.:

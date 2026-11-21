@@ -65,7 +65,7 @@ org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!ThwimpSprID*3)
 org SMB3_NorSprStatus01_Init_NormalSpriteInitPointers+(!ThwimpSprID*3)
     dl SMWThwimpInit
 
-; since the sprite uses default interaction, we'll dummy out its stomped-on pointer with 'RTL : NOP : NOP' in little-endian
+; since the sprite uses default interaction, we'll dummy out its interaction pointer with 'RTL : NOP : NOP' in little-endian
 org !SprCustInteractTable+(!ThwimpSprID*3)
     dl $EAEA6B
 

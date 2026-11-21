@@ -90,7 +90,7 @@ org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!LilSparkySprID*3)
 org SMB3_NorSprStatus01_Init_NormalSpriteInitPointers+(!LilSparkySprID*3)
     dl WallFollowersInit
 
-; since the sprite uses default interaction, we'll dummy out its stomped-on pointer with 'RTL : NOP : NOP' in little-endian
+; since the sprite uses default interaction, we'll dummy out its interaction pointer with 'RTL : NOP : NOP' in little-endian
 org !SprCustInteractTable+(!LilSparkySprID*3)
     dl $EAEA6B
 
@@ -134,7 +134,7 @@ org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!HotheadSprID*3)
 org SMB3_NorSprStatus01_Init_NormalSpriteInitPointers+(!HotheadSprID*3)
     dl WallFollowersInit
 
-; since the sprite uses default interaction, we'll dummy out its stomped-on pointer with 'RTL : NOP : NOP' in little-endian
+; since the sprite uses default interaction, we'll dummy out its interaction pointer with 'RTL : NOP : NOP' in little-endian
 org !SprCustInteractTable+(!HotheadSprID*3)
     dl $EAEA6B
 
@@ -169,7 +169,7 @@ org !SprGFXPageTable+!HotheadSprID
 ;======================================================================================================================;
 ; ground fuzzy-related hijacks                                                                                         ;
 ;======================================================================================================================;
-; repoint the GROUND FUZZY'S main pointer somewhere in automatically-found freespace
+; now repoint the GROUND FUZZY'S main pointer somewhere in automatically-found freespace
 ; (the pointer is 24-bit, hence we need to multiply the desired sprite no. by 3 to get the right pointer)
 org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!GroundFuzzySprID*3)
     dl WallFollowersMain
@@ -178,7 +178,7 @@ org SMB3_NorSprStatus02_Normal_NormalSpriteMainPointers+(!GroundFuzzySprID*3)
 org SMB3_NorSprStatus01_Init_NormalSpriteInitPointers+(!GroundFuzzySprID*3)
     dl WallFollowersInit
 
-; since the sprite uses default interaction, we'll dummy out its stomped-on pointer with 'RTL : NOP : NOP' in little-endian
+; since the sprite uses default interaction, we'll dummy out its interaction pointer with 'RTL : NOP : NOP' in little-endian
 org !SprCustInteractTable+(!GroundFuzzySprID*3)
     dl $EAEA6B
 
@@ -436,7 +436,8 @@ LilSparkyGFX:
     LDA #!LilSparkyBodyTile
     STA.w SMB3_OAMBuffer[$00].Tile,y
 
-; ...and then the 'YXPPCCCT', which will change based on the frame counter
+; now set the 'YXPPCCCT', where scratch RAM $02 from 'Object_ShakeAndCalcSprite' already holds the sprite's palette,
+; and $03 holds the other properties such as X/Y-flip
     LDA.b !RAM_SMB3_Global_ScratchRAM02
     ORA.b !RAM_SMB3_Global_ScratchRAM03
     STA.w SMB3_OAMBuffer[$00].Prop,y
@@ -550,7 +551,8 @@ HotheadGFX:
     ADC.l hothead_body_y_disps,x
     STA.w SMB3_OAMBuffer[$01].YDisp,y
 
-; ...then its tile no. & 'YXPPCCCT' based on which frame it's on
+; ...then its tile no. & 'YXPPCCCT', where scratch RAM $02 from 'Object_ShakeAndCalcSprite' already holds the sprite's palette,
+; and $03 holds the other properties such as X/Y-flip
     LDA.l hothead_body_tiles,x
     STA.w SMB3_OAMBuffer[$01].Tile,y
     LDA.b !RAM_SMB3_Global_ScratchRAM02

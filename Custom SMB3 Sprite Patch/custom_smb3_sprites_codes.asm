@@ -11,25 +11,11 @@ incsrc "Custom SMB3 Sprite Codes/smw_wall_followers.asm"
 incsrc "Custom SMB3 Sprite Codes/smw_bony_beetle.asm"
 incsrc "Custom SMB3 Sprite Codes/smw_jumping_piranha_plants.asm"
 incsrc "Custom SMB3 Sprite Codes/smw_ground_grinder.asm"
+incsrc "Custom SMB3 Sprite Codes/smw_line_guided_sprites.asm"
 
 ;======================================================================================================================;
 ; start of miscellanous user defines                                                                                   ;
 ;======================================================================================================================;
-; ground & line-guided grinder GFX defines
-
-!GrinderTile1       = $A8       ;> the FIRST tile for the grinder's animation
-!GrinderTile2       = $AA       ;> the SECOND tile for the grinder's animation
-
-; X/Y-displacements for the grinder's tiles
-grinder_x_disps:
-    db $F8,$08,$F8,$08
-grinder_y_disps:
-    db $00,$00,$10,$10
-
-; the X/Y-flip properties for the grinder's tiles
-; set to $40 for X-flip, $80 for Y-flip, and $C0 for both!
-grinder_flip_props:
-    db $00,$40,$80,$C0
 
 ;======================================================================================================================;
 ; start of shared routines!
@@ -164,85 +150,6 @@ CustFinishOAMWrite:
 freecode
 
 ;======================================================================================================================;
-; shared grinder GFX routine                                                                                           ;
-;======================================================================================================================;
-GrinderGFX:
-; first, immediately store the priority setting using 'XBA' (which saves us a little RAM)
-    XBA
-
-; prepare the sprite page setting likewise and factor in our special priority option from the 'XBA'
-; (we can only access the sprite GFX page table with 'X' here since we're not in the same bank as it,
-; hence the register shenanigans. the normal 'YXPPCCCT' output from 'Object_ShakeAndCalcSprite' also forces the priority
-; to be IN FRONT of normal FG and it's difficult to work with that)
-    LDA.w !RAM_SMB3_Level_NorSpr_SpriteID,x
-    TAX
-    XBA
-    ORA.l !SprGFXPageTable,x
-    STA.b !RAM_SMB3_Global_ScratchRAM0D
-    LDX.b !SprSlotIndex
-
-; call 'Object_ShakeAndCalcSprite' (a.k.a. 'CODE_279DF9' in YF's orig. disasm.) & restore the sprite slot index afterwards,
-; as the routine doesn't already restore it
-    JSL !SprShakeAndCalcTilePos
-    LDX.b !SprSlotIndex
-
-; since we wanna change the tiles, we must get into 16-bit 'X/Y' to access the OAM index via sprite RAM $C6,x
-    REP #$10
-    LDY.b !SprOAMIndex,x
-
-;======================================================================================================================;
-.startGrinderLoop
-; loop for four tiles!
-    LDX #$0003
-.grinderLoop
-; setup each tile's X/Y-displacements
-    LDA.l grinder_x_disps,x
-    CLC : ADC.b !RAM_SMB3_Global_ScratchRAM01
-    STA.w SMB3_OAMBuffer[$00].XDisp,y
-    LDA.l grinder_y_disps,x
-    CLC : ADC.b !RAM_SMB3_Global_ScratchRAM00
-    STA.w SMB3_OAMBuffer[$00].YDisp,y
-
-; preserve the tile loop counter index and change the grinder's tile based on the frame counter
-; (we divide it by 4 to slow it down a bit and restrict the total no. of frames to 0x0-0x1 for the final check)
-    PHX
-    LDX.w #!GrinderTile1
-    LDA.b !RAM_SMB3_Global_FrameCounter
-    LSR #2
-    AND #$01
-    BNE +
-    LDX.w #!GrinderTile2
-+   TXA
-    STA.w SMB3_OAMBuffer[$00].Tile,y
-    PLX
-
-; now the 'YXPPCCCT', factoring in our sprite page & priority setting from before
-; (scratch RAM $03 from 'Object_ShakeAndCalcSprite' already holds the sprite's palette)
-    LDA.b !RAM_SMB3_Global_ScratchRAM03
-    ORA.b !RAM_SMB3_Global_ScratchRAM0D
-    ORA.l grinder_flip_props,x
-    STA.w SMB3_OAMBuffer[$00].Prop,y
-
-; increase the OAM index by 4 each loop, and terminate once the tile loop counter becomes NEGATIVE
-    INY #4
-    DEX
-    BPL .grinderLoop
-.return16Bit
-; exit 16-bit 'X/Y' & return, restoring the sprite slot index in the progress
-    SEP #$10
-    LDX.b !SprSlotIndex
-
-; now since SMB3's way of preventing tiles from wrapping horizontally across the screen is VERY limited for our needs here,
-; we'll finish the OAM write with a specialized routine entirely!
-; we'll be setting 'Y' to 0x2 to make all tiles 16x16, & 'A' to the total no. of tiles drawn MINUS 1,
-; which in the grinder's case is 4 tiles total
-    LDY #$02
-    LDA #$03
-    JML CustFinishOAMWrite
-
-freecode
-
-;======================================================================================================================;
 ; custom shared 16x16 sprite routine                                                                                   ;
 ;======================================================================================================================;
 ; adapted from the vanilla routine 'Object_Draw16x16Sprite' (a.k.a. 'CODE_279F91' in YF's orig. disasm.)
@@ -278,7 +185,7 @@ Draw16x16Sprite:
 ; (scratch RAM $04 here holds the VERTICAL off-screen flag from sprite RAM $0681,x)
     LDA.b !RAM_SMB3_Global_ScratchRAM04
     BEQ +
-    JML .return16Bit
+    JML Return16Bit
 
 ; setup the X-displacements (the bottom half will be displaced 8 pixels RIGHT)
 +   LDA.b !RAM_SMB3_Global_ScratchRAM01
@@ -298,6 +205,7 @@ Draw16x16Sprite:
     STA.w SMB3_OAMBuffer[$01].YDisp,y
     STA.w SMB3_OAMBuffer[$03].YDisp,y
 
+Draw16x16SprSharedCont:
 ; now set the 'YXPPCCCT', where scratch RAM $02 from 'Object_ShakeAndCalcSprite' already holds the sprite's palette,
 ; and $03 holds the other properties such as X/Y-flip
 ; (we'll also take into account the setting for X-flipping both halves as applicable)
@@ -385,10 +293,65 @@ Draw16x16Sprite:
     STA.w SMB3_OAMTileSizeBuffer[$02].Slot,y
     STA.w SMB3_OAMTileSizeBuffer[$03].Slot,y
     PLY
-.return16Bit
+Return16Bit:
 ; exit 16-bit 'X/Y', restore the sprite slot index, & continue!
     SEP #$10
     LDX.b !SprSlotIndex
+    RTL
+
+freecode
+
+;======================================================================================================================;
+; custom player hitbox routine                                                                                         ;
+;======================================================================================================================;
+; inputs:
+;   - scratch RAM $00: the hitbox's X-position (NEGATIVE values = LEFT, POSITIVE ones = RIGHT)
+;   - scratch RAM $01: the hitbox's Y-position (NEGATIVE values = UP, POSITIVE ones = DOWN)
+;   - scratch RAM $02: the HORIZONTAL hitbox (MUST BE POSITIVE!)
+;   - scratch RAM $03: the VERTICAL hitbox (MUST BE POSITIVE!)
+;   - carry: if SET, then the player has touched the hitbox; if CLEAR, then they haven't
+;
+SprCustomPlayerHitbox:
+; don't do anything if the sprite's horizontally or vertically off-screen!
+    LDA.w !RAM_SMB3_Level_NorSpr_XOffscreenFlag,x
+    ORA.w !RAM_SMB3_Level_NorSpr_YOffscreenFlag,x
+    BNE .return
+
+; multiply the horizontal & vertical hitbox values by 2 and store it for easier comparison
+    LDA.b !RAM_SMB3_Global_ScratchRAM02
+    ASL
+    STA.b !RAM_SMB3_Global_ScratchRAM04
+    LDA.b !RAM_SMB3_Global_ScratchRAM03
+    ASL
+    STA.b !RAM_SMB3_Global_ScratchRAM05
+
+; for the HORIZONTAL hitbox's X-position, first offset the sprite's ON-SCREEN X-position appropriately, then check the
+; distance between THAT and the player's ON-SCREEN X-position
+; if the distance < our desired hitbox, continue with the VERTICAL hitbox, otherwise return!
+    LDA.b !RAM_SMB3_Level_NorSpr_OnScreenXPos,x
+    CLC : ADC.b !RAM_SMB3_Global_ScratchRAM00
+    SEC : SBC !RAM_SMB3_Level_Player_OnScreenXPos
+    CLC : ADC.b !RAM_SMB3_Global_ScratchRAM02
+    CMP.b !RAM_SMB3_Global_ScratchRAM04
+    BCS .return
+
+; for the VERTICAL hitbox's Y-position, first offset the sprite's ON-SCREEN Y-position appropriately, then check the
+; distance between THAT and the player's ON-SCREEN Y-position
+; if the distance < our desired hitbox, continue further, otherwise return!
+    LDA.b !RAM_SMB3_Level_NorSpr_OnScreenYPos,x
+    CLC : ADC.b !RAM_SMB3_Global_ScratchRAM01
+    SEC : SBC !RAM_SMB3_Level_Player_OnScreenYPos
+    CLC : ADC.b !RAM_SMB3_Global_ScratchRAM03
+    CMP.b !RAM_SMB3_Global_ScratchRAM05
+    BCS .return
+
+; SET the carry to indicate contact
+    SEC
+    RTL
+
+.return
+; CLEAR the carry to indicate NO contact
+    CLC
     RTL
 
 freecode
